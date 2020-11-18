@@ -5,6 +5,9 @@
 <link rel="help" href="https://drafts.csswg.org/selectors/#the-hover-pseudo">
 <script src="/resources/testharness.js"></script>
 <script src="/resources/testharnessreport.js"></script>
+<script src="/resources/testdriver.js"></script>
+<script src="/resources/testdriver-actions.js"></script>
+<script src="/resources/testdriver-vendor.js"></script>
 <style>
   .affected:hover { color: green }
   #hoveredContents { display: contents }
@@ -14,11 +17,25 @@
   <div id="hovered2">Hover me - should become green</div>
 </div>
 <script>
-  function testElementGreen(test, element) {
+  function resolveWhen(condition) {
+    return new Promise((resolve, reject) => {
+      function tick() {
+        if (condition())
+          resolve();
+        else
+          requestAnimationFrame(tick.bind(this));
+      }
+      tick();
+    });
+  }
+
+  async function testElementGreen(test, element) {
     element.addEventListener("mouseover", test.step_func(event => {
       assert_equals(getComputedStyle(element).color, "rgb(0, 128, 0)");
-      test.done();
     }));
+
+    await new test_driver.Actions().pointerMove(0, 0, {origin: element}).send();
+    await resolveWhen(() => { return getComputedStyle(element).color == "rgb(0, 128, 0)" });
   }
 
   // Setting the affected classes here makes the two elements go from never
@@ -28,6 +45,12 @@
   hovered.className = "affected";
   hoveredContents.className = "affected";
 
-  async_test(t => { testElementGreen(t, hovered); }, "Hover #hovered element should make it go green");
-  async_test(t => { testElementGreen(t, hovered2); }, "Hover #hoveredContents child should make it go green");
+  promise_test(async test => {
+    await testElementGreen(test, hovered);
+  }, "Hover #hovered element should make it go green");
+
+  promise_test(async test => {
+    await testElementGreen(test, hovered2);
+  }, "Hover #hoveredContents child should make it go green");
+
 </script>
